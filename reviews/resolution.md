@@ -1,31 +1,30 @@
 # Accepted Findings
 
-- Command bar restructure: Split into two visual tiers — top row for tabs, bottom row for all controls (snapshot, filters, metric pills, actions). Add subtle separator and group labels. Remove description text from tab buttons at default size.
-- KPI-to-chart hierarchy: Reduce KPI number size, tighten card padding, add more gap before the main stage grid to create clear primacy for the chart.
-- Remove redundant tab header: Eliminate the "Workspace tab / Market view" heading block. The tab identity is already in the command bar.
-- Right rail emphasis: Make watchlist visually primary (slightly larger heading, border-accent treatment) and make the other two panels visually lighter/secondary.
-- Snapshot status: Collapse to a small inline badge when dates match; only expand to full prose when there is a date mismatch.
+- Hero must derive weekly aggregates from activeDrilldowns (scoped by marketFilter), not from snapshot-wide weeklyTrends. Build a local aggregation function that sums product-level weekly trends across the filtered set.
+- Focus and Compare onChange handlers in the controls drawer must call setHeroView("compare") so the comparison is immediately visible.
+- E2e must test both: focus/compare activates compare mode, and market filter changes hero scope.
 
 # Rejected Findings
 
-- Typography change: Not blocking for this pass. Would require font loading changes and broad CSS updates. Defer to a dedicated design pass.
+- None.
 
 # Implementation Slice
 
-Concentrated changes in two files:
-1. `src/components/dashboard-workspace.tsx` — restructure command bar JSX into two rows, remove tab descriptions from visible text (keep as aria labels), remove tab section header block, change snapshot status to badge/inline.
-2. `src/app/globals.css` — restyle command bar as two-tier layout, adjust KPI sizing, add hierarchy spacing, differentiate rail panels.
+1. Add a ScopedWeeklyTrend type and buildScopedWeeklyTrends helper that aggregates activeDrilldowns[].weeklyTrends by periodStart into totalVolume, openInterest, activeContracts, activeProducts, estimatedRevenue.
+2. Refactor MarketAggregateSummary and MarketAggregateChart to accept scopedTrends (ScopedWeeklyTrend[]) instead of two separate snapshot-level props.
+3. Add setHeroView("compare") to the Focus and Compare onChange handlers in the controls drawer.
+4. Update e2e to verify both behaviors: focus/compare activates compare mode, market filter scopes hero.
 
 # What Changed
 
 Files modified:
-- `src/components/dashboard-workspace.tsx` — two-tier command bar, compact KPI labels, conditional snapshot status, removed tab section header, watchlist primary class, tighter rail copy
-- `src/app/globals.css` — `.command-bar-row`, `.command-group`, `.command-group-label`, `.command-group-end`, `.command-bar-status`, `.workspace-panel-header-meta`, `.workspace-rail-panel-primary` classes added; tab segments restyled as compact pills; KPI card sizing reduced; spacing hierarchy improved; dead selectors removed
-- `scripts/e2e-dashboard-smoke.mjs` — updated `getByLabel` calls to `{ exact: true }`, updated snapshot status assertion text
+- `src/components/dashboard-workspace.tsx` — added `ScopedWeeklyTrend` type, `buildScopedWeeklyTrends()` function aggregating product-level weekly trends from `activeDrilldowns`, `scopedMetricValue()` helper replacing `aggregateMetricValue()`, refactored `MarketAggregateSummary` and `MarketAggregateChart` to accept `scopedTrends` prop, added `setHeroView("compare")` to Focus and Compare `onChange` handlers in the controls drawer
+- `scripts/e2e-dashboard-smoke.mjs` — added assertions that Focus/Compare controls activate compare mode immediately, market filter scopes the hero, Reset clears state before Workflow tab tests
+- `reviews/plan-review.md` — updated with current run findings
+- `reviews/resolution.md` — this file
 
 # Deferred
 
-- Query-backing active tab, market filter, focus/compare product
-- Font pairing change
-- Responsive improvements below 640px (current responsive is adequate)
-- Animation/transitions on tab switch
+- Query-backing heroView, marketFilter, focus/compare product state in the URL.
+- Animated view transitions between hero views.
+- Dual-axis aggregate chart (bars + OI line overlay).

@@ -19,6 +19,17 @@ type DashboardWorkspaceProps = {
 
 type WorkspaceTab = "market" | "workflow" | "revenue";
 type ChartMetric = "volume" | "openInterest" | "fees";
+type HeroView = "market" | "compare";
+
+type ScopedWeeklyTrend = {
+  periodStart: string;
+  periodEnd: string;
+  totalVolume: number;
+  openInterest: number;
+  activeContracts: number;
+  activeProducts: number;
+  estimatedRevenue: number;
+};
 
 const integerFormatter = new Intl.NumberFormat("en-US");
 const decimalFormatter = new Intl.NumberFormat("en-US", {
@@ -68,6 +79,8 @@ export function DashboardWorkspace({
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("market");
   const [chartMetric, setChartMetric] = useState<ChartMetric>("volume");
+  const [heroView, setHeroView] = useState<HeroView>("market");
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const [marketFilter, setMarketFilter] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(defaultSelected);
   const [leftProduct, setLeftProduct] = useState(defaultSelected);
@@ -163,6 +176,7 @@ export function DashboardWorkspace({
     0,
   );
   const markedProducts = activeDrilldowns.filter((item) => item.pricedContracts > 0).length;
+  const scopedWeeklyTrends = buildScopedWeeklyTrends(activeDrilldowns);
 
   const navigateWithQuery = (updates: Record<string, string>) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -209,112 +223,7 @@ export function DashboardWorkspace({
             ))}
           </div>
 
-          {!datesMatch && (
-            <span className="workspace-badge workspace-badge-muted command-bar-status">
-              Fallback dates
-            </span>
-          )}
-        </div>
-
-        <div className="command-bar-row command-bar-row-controls">
-          <div className="command-group">
-            <span className="command-group-label">Snapshot</span>
-            <label className="command-field">
-              <span className="command-label">As of</span>
-              <select
-                className="workspace-select"
-                aria-label="As of"
-                value={requestedAsOf}
-                disabled={isPending}
-                onChange={(event) =>
-                  navigateWithQuery({ asof: event.currentTarget.value })
-                }
-              >
-                {asOfOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {formatDate(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="command-field">
-              <span className="command-label">Window</span>
-              <select
-                className="workspace-select"
-                aria-label="Time window"
-                value={String(requestedWindowDays)}
-                disabled={isPending}
-                onChange={(event) =>
-                  navigateWithQuery({ window: event.currentTarget.value })
-                }
-              >
-                {windowOptions.map((days) => (
-                  <option key={days} value={days}>
-                    {formatWindowOption(days)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="command-group">
-            <span className="command-group-label">Scope</span>
-            <label className="command-field">
-              <span className="command-label">Market</span>
-              <select
-                className="workspace-select"
-                aria-label="Market"
-                value={marketFilter}
-                onChange={(event) => setMarketFilter(event.currentTarget.value)}
-              >
-                <option value="all">All markets</option>
-                {marketOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="command-field">
-              <span className="command-label">Focus</span>
-              <select
-                className="workspace-select"
-                aria-label="Focus product"
-                value={resolvedSelected}
-                onChange={(event) => {
-                  const nextProduct = event.currentTarget.value;
-                  setSelectedProduct(nextProduct);
-                  setLeftProduct(nextProduct);
-                }}
-              >
-                {activeDrilldowns.map((item) => (
-                  <option key={item.product} value={item.product}>
-                    {item.product} | {item.market ?? "Unassigned"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="command-field">
-              <span className="command-label">Compare</span>
-              <select
-                className="workspace-select"
-                aria-label="Compare product"
-                value={resolvedRight}
-                onChange={(event) => setRightProduct(event.currentTarget.value)}
-              >
-                {activeDrilldowns.map((item) => (
-                  <option key={item.product} value={item.product}>
-                    {item.product} | {item.market ?? "Unassigned"}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="command-group command-group-end">
+          <div className="command-bar-row-end">
             <div className="workspace-pill-group" aria-label="Chart metric">
               {CHART_METRICS.map(([id, , shortLabel]) => (
                 <button
@@ -332,29 +241,160 @@ export function DashboardWorkspace({
               ))}
             </div>
 
+            {!datesMatch && (
+              <span className="workspace-badge workspace-badge-muted command-bar-status">
+                Fallback dates
+              </span>
+            )}
+
             <button
               type="button"
-              className="workspace-action-button workspace-action-button-secondary"
-              onClick={() => {
-                setActiveTab("market");
-                setChartMetric("volume");
-                setMarketFilter("all");
-                setSelectedProduct(defaultSelected);
-                setLeftProduct(defaultSelected);
-                setRightProduct(defaultCompare);
-              }}
+              className={
+                controlsExpanded
+                  ? "workspace-action-button workspace-controls-toggle workspace-controls-toggle-active"
+                  : "workspace-action-button workspace-controls-toggle"
+              }
+              aria-expanded={controlsExpanded}
+              aria-controls="workspace-controls-drawer"
+              onClick={() => setControlsExpanded((prev) => !prev)}
             >
-              Reset
-            </button>
-            <button
-              type="button"
-              className="workspace-action-button"
-              onClick={() => window.print()}
-            >
-              Export
+              Controls
             </button>
           </div>
         </div>
+
+        {controlsExpanded && (
+          <div
+            id="workspace-controls-drawer"
+            className="command-bar-row command-bar-row-controls"
+          >
+            <div className="command-group">
+              <span className="command-group-label">Snapshot</span>
+              <label className="command-field">
+                <span className="command-label">As of</span>
+                <select
+                  className="workspace-select"
+                  aria-label="As of"
+                  value={requestedAsOf}
+                  disabled={isPending}
+                  onChange={(event) =>
+                    navigateWithQuery({ asof: event.currentTarget.value })
+                  }
+                >
+                  {asOfOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {formatDate(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="command-field">
+                <span className="command-label">Window</span>
+                <select
+                  className="workspace-select"
+                  aria-label="Time window"
+                  value={String(requestedWindowDays)}
+                  disabled={isPending}
+                  onChange={(event) =>
+                    navigateWithQuery({ window: event.currentTarget.value })
+                  }
+                >
+                  {windowOptions.map((days) => (
+                    <option key={days} value={days}>
+                      {formatWindowOption(days)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="command-group">
+              <span className="command-group-label">Scope</span>
+              <label className="command-field">
+                <span className="command-label">Market</span>
+                <select
+                  className="workspace-select"
+                  aria-label="Market"
+                  value={marketFilter}
+                  onChange={(event) => setMarketFilter(event.currentTarget.value)}
+                >
+                  <option value="all">All markets</option>
+                  {marketOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="command-field">
+                <span className="command-label">Focus</span>
+                <select
+                  className="workspace-select"
+                  aria-label="Focus product"
+                  value={resolvedSelected}
+                  onChange={(event) => {
+                    const nextProduct = event.currentTarget.value;
+                    setSelectedProduct(nextProduct);
+                    setLeftProduct(nextProduct);
+                    setHeroView("compare");
+                  }}
+                >
+                  {activeDrilldowns.map((item) => (
+                    <option key={item.product} value={item.product}>
+                      {item.product} | {item.market ?? "Unassigned"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="command-field">
+                <span className="command-label">Compare</span>
+                <select
+                  className="workspace-select"
+                  aria-label="Compare product"
+                  value={resolvedRight}
+                  onChange={(event) => {
+                    setRightProduct(event.currentTarget.value);
+                    setHeroView("compare");
+                  }}
+                >
+                  {activeDrilldowns.map((item) => (
+                    <option key={item.product} value={item.product}>
+                      {item.product} | {item.market ?? "Unassigned"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="command-group command-group-end">
+              <button
+                type="button"
+                className="workspace-action-button workspace-action-button-secondary"
+                onClick={() => {
+                  setActiveTab("market");
+                  setChartMetric("volume");
+                  setHeroView("market");
+                  setMarketFilter("all");
+                  setSelectedProduct(defaultSelected);
+                  setLeftProduct(defaultSelected);
+                  setRightProduct(defaultCompare);
+                }}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="workspace-action-button"
+                onClick={() => window.print()}
+              >
+                Export
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <section className="workspace-kpi-strip" aria-label="KPI strip">
@@ -382,61 +422,105 @@ export function DashboardWorkspace({
 
       <section className="workspace-stage-grid">
         <article className="workspace-panel workspace-panel-stage">
-          <div className="workspace-panel-header">
-            <div>
-              <p className="eyebrow">Abaxx market workspace</p>
-              <h1>Weekly {activeMetric[2].toLowerCase()} overlay</h1>
-            </div>
-            <div className="workspace-panel-header-meta">
-              <span className="workspace-badge workspace-badge-muted">{timeWindowLabel}</span>
-              {snapshotStatusLabel ? (
-                <p className="workspace-panel-meta">{snapshotStatusLabel}</p>
-              ) : null}
-            </div>
-          </div>
+          {heroView === "market" ? (
+            <>
+              <div className="workspace-panel-header">
+                <div>
+                  <p className="eyebrow">Abaxx exchange</p>
+                  <h1>Weekly market {activeMetric[2].toLowerCase()}</h1>
+                </div>
+                <div className="workspace-panel-header-meta">
+                  <span className="workspace-badge workspace-badge-muted">{timeWindowLabel}</span>
+                  {snapshotStatusLabel ? (
+                    <p className="workspace-panel-meta">{snapshotStatusLabel}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="workspace-view-toggle"
+                    onClick={() => setHeroView("compare")}
+                  >
+                    Compare products
+                  </button>
+                </div>
+              </div>
 
-          <div className="workspace-stage-summary">
-            <article className="workspace-stage-card">
-              <p className="card-label">Focus leg</p>
-              <strong>{left.product}</strong>
-              <p>
-                {left.market ?? "Unassigned"} market, front {left.frontSymbol ?? "n/a"}.
-              </p>
-            </article>
-            <article className="workspace-stage-card">
-              <p className="card-label">Compare leg</p>
-              <strong>{right.product}</strong>
-              <p>
-                {right.market ?? "Unassigned"} market, front {right.frontSymbol ?? "n/a"}.
-              </p>
-            </article>
-            <article className="workspace-stage-card">
-              <p className="card-label">Latest spread</p>
-              <strong>
-                {formatMetricDelta(
-                  (latestRow?.leftValue ?? 0) - (latestRow?.rightValue ?? 0),
-                  chartMetric,
-                )}
-              </strong>
-              <p>
-                {priorRow
-                  ? `Gap vs prior bucket: ${formatMetricDelta(
-                      (latestRow?.leftValue ?? 0) -
-                        (latestRow?.rightValue ?? 0) -
-                        ((priorRow.leftValue ?? 0) - (priorRow.rightValue ?? 0)),
+              <MarketAggregateSummary
+                chartMetric={chartMetric}
+                scopedTrends={scopedWeeklyTrends}
+                activeDrilldowns={activeDrilldowns}
+              />
+
+              <MarketAggregateChart
+                chartMetric={chartMetric}
+                scopedTrends={scopedWeeklyTrends}
+              />
+            </>
+          ) : (
+            <>
+              <div className="workspace-panel-header">
+                <div>
+                  <p className="eyebrow">Product comparison</p>
+                  <h1>Weekly {activeMetric[2].toLowerCase()} overlay</h1>
+                </div>
+                <div className="workspace-panel-header-meta">
+                  <span className="workspace-badge workspace-badge-muted">{timeWindowLabel}</span>
+                  {snapshotStatusLabel ? (
+                    <p className="workspace-panel-meta">{snapshotStatusLabel}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="workspace-view-toggle"
+                    onClick={() => setHeroView("market")}
+                  >
+                    Market overview
+                  </button>
+                </div>
+              </div>
+
+              <div className="workspace-stage-summary">
+                <article className="workspace-stage-card">
+                  <p className="card-label">Focus leg</p>
+                  <strong>{left.product}</strong>
+                  <p>
+                    {left.market ?? "Unassigned"} market, front {left.frontSymbol ?? "n/a"}.
+                  </p>
+                </article>
+                <article className="workspace-stage-card">
+                  <p className="card-label">Compare leg</p>
+                  <strong>{right.product}</strong>
+                  <p>
+                    {right.market ?? "Unassigned"} market, front {right.frontSymbol ?? "n/a"}.
+                  </p>
+                </article>
+                <article className="workspace-stage-card">
+                  <p className="card-label">Latest spread</p>
+                  <strong>
+                    {formatMetricDelta(
+                      (latestRow?.leftValue ?? 0) - (latestRow?.rightValue ?? 0),
                       chartMetric,
-                    )}.`
-                  : "First visible week in the current window."}
-              </p>
-            </article>
-          </div>
+                    )}
+                  </strong>
+                  <p>
+                    {priorRow
+                      ? `Gap vs prior bucket: ${formatMetricDelta(
+                          (latestRow?.leftValue ?? 0) -
+                            (latestRow?.rightValue ?? 0) -
+                            ((priorRow.leftValue ?? 0) - (priorRow.rightValue ?? 0)),
+                          chartMetric,
+                        )}.`
+                      : "First visible week in the current window."}
+                  </p>
+                </article>
+              </div>
 
-          <OverlayComparisonChart
-            chartMetric={chartMetric}
-            leftProduct={left.product}
-            rightProduct={right.product}
-            rows={overlayRows}
-          />
+              <OverlayComparisonChart
+                chartMetric={chartMetric}
+                leftProduct={left.product}
+                rightProduct={right.product}
+                rows={overlayRows}
+              />
+            </>
+          )}
         </article>
 
         <aside className="workspace-rail">
@@ -467,6 +551,7 @@ export function DashboardWorkspace({
                       onClick={() => {
                         setSelectedProduct(item.product);
                         setLeftProduct(item.product);
+                        setHeroView("compare");
                       }}
                     >
                       Focus
@@ -474,7 +559,10 @@ export function DashboardWorkspace({
                     <button
                       type="button"
                       className="workspace-button workspace-button-secondary"
-                      onClick={() => setRightProduct(item.product)}
+                      onClick={() => {
+                        setRightProduct(item.product);
+                        setHeroView("compare");
+                      }}
                     >
                       Compare
                     </button>
@@ -762,6 +850,207 @@ function MiniSparkline({ points }: { points: number[] }) {
       </svg>
     </div>
   );
+}
+
+function MarketAggregateSummary({
+  chartMetric,
+  scopedTrends,
+  activeDrilldowns,
+}: {
+  chartMetric: ChartMetric;
+  scopedTrends: ScopedWeeklyTrend[];
+  activeDrilldowns: DashboardSnapshot["productDrilldowns"];
+}) {
+  const buckets = scopedTrends.slice(-6);
+  const latest = buckets.at(-1);
+  const prior = buckets.at(-2);
+
+  const latestValue = scopedMetricValue(latest, chartMetric);
+  const priorValue = scopedMetricValue(prior, chartMetric);
+  const delta = latestValue - priorValue;
+  const pctChange =
+    priorValue > 0 ? ((delta / priorValue) * 100).toFixed(1) : null;
+  const activeProducts = latest?.activeProducts ?? 0;
+  const activeContracts = latest?.activeContracts ?? 0;
+  const markCount = activeDrilldowns.filter(
+    (item) => item.pricedContracts > 0,
+  ).length;
+
+  return (
+    <div className="workspace-stage-summary">
+      <article className="workspace-stage-card">
+        <p className="card-label">Latest week</p>
+        <strong>{formatMetricValue(latestValue, chartMetric)}</strong>
+        <p>
+          {latest
+            ? shortRange(latest.periodStart, latest.periodEnd)
+            : "No data"}
+        </p>
+      </article>
+      <article className="workspace-stage-card">
+        <p className="card-label">Week-over-week</p>
+        <strong>{formatMetricDelta(delta, chartMetric)}</strong>
+        <p>
+          {pctChange !== null
+            ? `${delta >= 0 ? "+" : ""}${pctChange}% from prior bucket`
+            : "First visible week"}
+        </p>
+      </article>
+      <article className="workspace-stage-card">
+        <p className="card-label">Market breadth</p>
+        <strong>
+          {integerFormatter.format(activeProducts)} product
+          {activeProducts === 1 ? "" : "s"}
+        </strong>
+        <p>
+          {integerFormatter.format(activeContracts)} active contracts,{" "}
+          {integerFormatter.format(markCount)} marked
+        </p>
+      </article>
+    </div>
+  );
+}
+
+function MarketAggregateChart({
+  chartMetric,
+  scopedTrends,
+}: {
+  chartMetric: ChartMetric;
+  scopedTrends: ScopedWeeklyTrend[];
+}) {
+  const data = scopedTrends.slice(-6).map((bucket) => ({
+    label: shortRange(bucket.periodStart, bucket.periodEnd),
+    periodStart: bucket.periodStart,
+    value: scopedMetricValue(bucket, chartMetric),
+    activeProducts: bucket.activeProducts,
+  }));
+
+  if (data.length === 0) {
+    return null;
+  }
+
+  const width = 860;
+  const height = 320;
+  const paddingX = 28;
+  const paddingTop = 20;
+  const paddingBottom = 40;
+  const chartHeight = height - paddingTop - paddingBottom;
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
+  const barGap = Math.max(8, 16 - data.length * 2);
+  const usableWidth = width - paddingX * 2;
+  const barWidth =
+    (usableWidth - barGap * (data.length - 1)) / data.length;
+
+  return (
+    <div className="market-aggregate-shell">
+      <div
+        className="market-aggregate-chart"
+        role="img"
+        aria-label={`Weekly market ${chartMetric}`}
+      >
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="market-aggregate-svg"
+          preserveAspectRatio="none"
+        >
+          {[0.2, 0.4, 0.6, 0.8].map((ratio) => {
+            const y = paddingTop + chartHeight * (1 - ratio);
+            return (
+              <line
+                key={ratio}
+                x1={paddingX}
+                x2={width - paddingX}
+                y1={y}
+                y2={y}
+                className="workspace-gridline"
+              />
+            );
+          })}
+          {data.map((d, i) => {
+            const barH = (d.value / maxValue) * chartHeight;
+            const x = paddingX + i * (barWidth + barGap);
+            const y = paddingTop + chartHeight - barH;
+            return (
+              <rect
+                key={d.periodStart}
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barH}
+                className="market-bar"
+                rx="4"
+              />
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="workspace-chart-footer">
+        {data.map((d) => (
+          <div key={d.periodStart} className="workspace-footer-item">
+            <span>{d.label}</span>
+            <strong>{formatMetricValue(d.value, chartMetric)}</strong>
+            <small>
+              {integerFormatter.format(d.activeProducts)} product
+              {d.activeProducts === 1 ? "" : "s"}
+            </small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildScopedWeeklyTrends(
+  drilldowns: DashboardSnapshot["productDrilldowns"],
+): ScopedWeeklyTrend[] {
+  const periods = new Map<string, ScopedWeeklyTrend>();
+
+  for (const drilldown of drilldowns) {
+    for (const trend of drilldown.weeklyTrends) {
+      const existing = periods.get(trend.periodStart);
+      if (existing) {
+        existing.totalVolume += trend.totalVolume;
+        existing.openInterest += trend.openInterest;
+        existing.activeContracts += trend.activeContracts;
+        existing.activeProducts += trend.activeProducts;
+        existing.estimatedRevenue += trend.estimatedRevenue ?? 0;
+      } else {
+        periods.set(trend.periodStart, {
+          periodStart: trend.periodStart,
+          periodEnd: trend.periodEnd,
+          totalVolume: trend.totalVolume,
+          openInterest: trend.openInterest,
+          activeContracts: trend.activeContracts,
+          activeProducts: trend.activeProducts,
+          estimatedRevenue: trend.estimatedRevenue ?? 0,
+        });
+      }
+    }
+  }
+
+  return [...periods.values()].sort((a, b) =>
+    a.periodStart.localeCompare(b.periodStart),
+  );
+}
+
+function scopedMetricValue(
+  trend: ScopedWeeklyTrend | undefined | null,
+  chartMetric: ChartMetric,
+): number {
+  if (!trend) {
+    return 0;
+  }
+
+  switch (chartMetric) {
+    case "openInterest":
+      return trend.openInterest;
+    case "fees":
+      return trend.estimatedRevenue;
+    case "volume":
+    default:
+      return trend.totalVolume;
+  }
 }
 
 function OverlayComparisonChart({
