@@ -143,10 +143,6 @@ export function DashboardWorkspace({
     snapshot.timeSeriesWindow.fromDate,
     snapshot.timeSeriesWindow.tillDate,
   );
-  const snapshotStatusLabel =
-    snapshot.asOf === requestedAsOf && snapshot.settlementAsOf === requestedAsOf
-      ? `Requested ${formatDate(requestedAsOf)}. Activity and settlement both resolved on the same date.`
-      : `Requested ${formatDate(requestedAsOf)}. Activity resolved to ${formatDate(snapshot.asOf)} and settlement resolved to ${formatDate(snapshot.settlementAsOf)}.`;
   const activeMetric = CHART_METRICS.find((item) => item[0] === chartMetric) ?? CHART_METRICS[0];
   const latestRow = overlayRows.at(-1);
   const priorRow = overlayRows.at(-2);
@@ -183,10 +179,16 @@ export function DashboardWorkspace({
     });
   };
 
+  const datesMatch =
+    snapshot.asOf === requestedAsOf && snapshot.settlementAsOf === requestedAsOf;
+  const snapshotStatusLabel = datesMatch
+    ? null
+    : `Requested ${formatDate(requestedAsOf)}. Activity resolved to ${formatDate(snapshot.asOf)} and settlement resolved to ${formatDate(snapshot.settlementAsOf)}.`;
+
   return (
     <>
       <header className="workspace-command-bar">
-        <div className="command-cluster command-cluster-tabs">
+        <div className="command-bar-row command-bar-row-tabs">
           <div className="workspace-segmented" aria-label="Workspace tabs" role="tablist">
             {WORKSPACE_TABS.map(([id, label, detail]) => (
               <button
@@ -194,6 +196,7 @@ export function DashboardWorkspace({
                 type="button"
                 role="tab"
                 aria-selected={activeTab === id}
+                aria-label={`${label} tab: ${detail}`}
                 className={
                   activeTab === id
                     ? "workspace-segment workspace-segment-active"
@@ -201,174 +204,179 @@ export function DashboardWorkspace({
                 }
                 onClick={() => setActiveTab(id)}
               >
-                <span>{label}</span>
-                <small>{detail}</small>
+                {label}
               </button>
             ))}
           </div>
+
+          {!datesMatch && (
+            <span className="workspace-badge workspace-badge-muted command-bar-status">
+              Fallback dates
+            </span>
+          )}
         </div>
 
-        <div className="command-cluster">
-          <label className="command-field">
-            <span className="command-label">As of</span>
-            <select
-              className="workspace-select"
-              aria-label="As of"
-              value={requestedAsOf}
-              disabled={isPending}
-              onChange={(event) =>
-                navigateWithQuery({ asof: event.currentTarget.value })
-              }
-            >
-              {asOfOptions.map((option) => (
-                <option key={option} value={option}>
-                  {formatDate(option)}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="command-bar-row command-bar-row-controls">
+          <div className="command-group">
+            <span className="command-group-label">Snapshot</span>
+            <label className="command-field">
+              <span className="command-label">As of</span>
+              <select
+                className="workspace-select"
+                aria-label="As of"
+                value={requestedAsOf}
+                disabled={isPending}
+                onChange={(event) =>
+                  navigateWithQuery({ asof: event.currentTarget.value })
+                }
+              >
+                {asOfOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {formatDate(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="command-field">
-            <span className="command-label">Window</span>
-            <select
-              className="workspace-select"
-              aria-label="Time window"
-              value={String(requestedWindowDays)}
-              disabled={isPending}
-              onChange={(event) =>
-                navigateWithQuery({ window: event.currentTarget.value })
-              }
-            >
-              {windowOptions.map((days) => (
-                <option key={days} value={days}>
-                  {formatWindowOption(days)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            <label className="command-field">
+              <span className="command-label">Window</span>
+              <select
+                className="workspace-select"
+                aria-label="Time window"
+                value={String(requestedWindowDays)}
+                disabled={isPending}
+                onChange={(event) =>
+                  navigateWithQuery({ window: event.currentTarget.value })
+                }
+              >
+                {windowOptions.map((days) => (
+                  <option key={days} value={days}>
+                    {formatWindowOption(days)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-        <div className="command-cluster command-cluster-controls">
-          <label className="command-field">
-            <span className="command-label">Market</span>
-            <select
-              className="workspace-select"
-              aria-label="Market"
-              value={marketFilter}
-              onChange={(event) => setMarketFilter(event.currentTarget.value)}
-            >
-              <option value="all">All markets</option>
-              {marketOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="command-group">
+            <span className="command-group-label">Scope</span>
+            <label className="command-field">
+              <span className="command-label">Market</span>
+              <select
+                className="workspace-select"
+                aria-label="Market"
+                value={marketFilter}
+                onChange={(event) => setMarketFilter(event.currentTarget.value)}
+              >
+                <option value="all">All markets</option>
+                {marketOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="command-field">
-            <span className="command-label">Focus</span>
-            <select
-              className="workspace-select"
-              aria-label="Focus product"
-              value={resolvedSelected}
-              onChange={(event) => {
-                const nextProduct = event.currentTarget.value;
-                setSelectedProduct(nextProduct);
-                setLeftProduct(nextProduct);
+            <label className="command-field">
+              <span className="command-label">Focus</span>
+              <select
+                className="workspace-select"
+                aria-label="Focus product"
+                value={resolvedSelected}
+                onChange={(event) => {
+                  const nextProduct = event.currentTarget.value;
+                  setSelectedProduct(nextProduct);
+                  setLeftProduct(nextProduct);
+                }}
+              >
+                {activeDrilldowns.map((item) => (
+                  <option key={item.product} value={item.product}>
+                    {item.product} | {item.market ?? "Unassigned"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="command-field">
+              <span className="command-label">Compare</span>
+              <select
+                className="workspace-select"
+                aria-label="Compare product"
+                value={resolvedRight}
+                onChange={(event) => setRightProduct(event.currentTarget.value)}
+              >
+                {activeDrilldowns.map((item) => (
+                  <option key={item.product} value={item.product}>
+                    {item.product} | {item.market ?? "Unassigned"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="command-group command-group-end">
+            <div className="workspace-pill-group" aria-label="Chart metric">
+              {CHART_METRICS.map(([id, , shortLabel]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={
+                    chartMetric === id
+                      ? "workspace-pill workspace-pill-active"
+                      : "workspace-pill"
+                  }
+                  onClick={() => setChartMetric(id)}
+                >
+                  {shortLabel}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="workspace-action-button workspace-action-button-secondary"
+              onClick={() => {
+                setActiveTab("market");
+                setChartMetric("volume");
+                setMarketFilter("all");
+                setSelectedProduct(defaultSelected);
+                setLeftProduct(defaultSelected);
+                setRightProduct(defaultCompare);
               }}
             >
-              {activeDrilldowns.map((item) => (
-                <option key={item.product} value={item.product}>
-                  {item.product} | {item.market ?? "Unassigned"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="command-field">
-            <span className="command-label">Compare</span>
-            <select
-              className="workspace-select"
-              aria-label="Compare product"
-              value={resolvedRight}
-              onChange={(event) => setRightProduct(event.currentTarget.value)}
+              Reset
+            </button>
+            <button
+              type="button"
+              className="workspace-action-button"
+              onClick={() => window.print()}
             >
-              {activeDrilldowns.map((item) => (
-                <option key={item.product} value={item.product}>
-                  {item.product} | {item.market ?? "Unassigned"}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="command-cluster command-cluster-actions">
-          <div className="workspace-pill-group" aria-label="Chart metric">
-            {CHART_METRICS.map(([id, , shortLabel]) => (
-              <button
-                key={id}
-                type="button"
-                className={
-                  chartMetric === id
-                    ? "workspace-pill workspace-pill-active"
-                    : "workspace-pill"
-                }
-                onClick={() => setChartMetric(id)}
-              >
-                {shortLabel}
-              </button>
-            ))}
+              Export
+            </button>
           </div>
-
-          <button
-            type="button"
-            className="workspace-action-button workspace-action-button-secondary"
-            onClick={() => {
-              setActiveTab("market");
-              setChartMetric("volume");
-              setMarketFilter("all");
-              setSelectedProduct(defaultSelected);
-              setLeftProduct(defaultSelected);
-              setRightProduct(defaultCompare);
-            }}
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            className="workspace-action-button"
-            onClick={() => window.print()}
-          >
-            Export
-          </button>
         </div>
       </header>
 
       <section className="workspace-kpi-strip" aria-label="KPI strip">
         <article className="workspace-kpi-card workspace-kpi-card-accent">
-          <p className="card-label">Products in view</p>
+          <p className="card-label">Products</p>
           <strong>{integerFormatter.format(activeDrilldowns.length)}</strong>
-          <p>
-            {marketFilter === "all"
-              ? "Full exchange surface."
-              : `${marketFilter} scoped workspace.`}
-          </p>
+          <p>{marketFilter === "all" ? "All markets" : marketFilter}</p>
         </article>
         <article className="workspace-kpi-card">
-          <p className="card-label">Listed contracts</p>
+          <p className="card-label">Contracts</p>
           <strong>{integerFormatter.format(listedContracts)}</strong>
-          <p>{integerFormatter.format(markedProducts)} products currently have visible marks.</p>
+          <p>{integerFormatter.format(markedProducts)} marked</p>
         </article>
         <article className="workspace-kpi-card">
-          <p className="card-label">Latest volume</p>
+          <p className="card-label">Volume</p>
           <strong>{integerFormatter.format(totalVolume)}</strong>
-          <p>{integerFormatter.format(openInterest)} open interest in the same scope.</p>
+          <p>{integerFormatter.format(openInterest)} OI</p>
         </article>
         <article className="workspace-kpi-card">
-          <p className="card-label">Modeled daily fees</p>
+          <p className="card-label">Modeled fees</p>
           <strong>{currencyFormatter.format(modeledFees)}</strong>
-          <p>Observed flow fixed, fee layer still scenario-aware.</p>
+          <p>Scenario-aware</p>
         </article>
       </section>
 
@@ -379,9 +387,12 @@ export function DashboardWorkspace({
               <p className="eyebrow">Abaxx market workspace</p>
               <h1>Weekly {activeMetric[2].toLowerCase()} overlay</h1>
             </div>
-            <p className="workspace-panel-meta">
-              {snapshotStatusLabel} Trend window: {timeWindowLabel}
-            </p>
+            <div className="workspace-panel-header-meta">
+              <span className="workspace-badge workspace-badge-muted">{timeWindowLabel}</span>
+              {snapshotStatusLabel ? (
+                <p className="workspace-panel-meta">{snapshotStatusLabel}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className="workspace-stage-summary">
@@ -429,13 +440,13 @@ export function DashboardWorkspace({
         </article>
 
         <aside className="workspace-rail">
-          <article className="workspace-panel workspace-rail-panel">
+          <article className="workspace-panel workspace-rail-panel workspace-rail-panel-primary">
             <div className="panel-head">
               <div>
                 <p className="eyebrow">Watchlist</p>
                 <h3>Active products</h3>
               </div>
-              <p className="panel-meta">Highest activity inside the current workspace scope.</p>
+              <p className="panel-meta">Top activity in scope</p>
             </div>
 
             <div className="watchlist-list">
@@ -479,7 +490,7 @@ export function DashboardWorkspace({
                 <p className="eyebrow">Front movers</p>
                 <h3>Settlement change board</h3>
               </div>
-              <p className="panel-meta">Ranked by absolute front-month move.</p>
+              <p className="panel-meta">By absolute front-month move</p>
             </div>
 
             <div className="rail-list">
@@ -505,7 +516,7 @@ export function DashboardWorkspace({
                 <p className="eyebrow">Fee leaders</p>
                 <h3>Modeled fee concentration</h3>
               </div>
-              <p className="panel-meta">Base model only. Scenario overrides live in the Revenue tab.</p>
+              <p className="panel-meta">Base model. Scenarios in Revenue tab.</p>
             </div>
 
             <div className="rail-list">
@@ -526,16 +537,6 @@ export function DashboardWorkspace({
       </section>
 
       <section className="workspace-tab-shell">
-        <div className="workspace-tab-header">
-          <div>
-            <p className="eyebrow">Workspace tab</p>
-            <h2>{WORKSPACE_TABS.find((item) => item[0] === activeTab)?.[1]} view</h2>
-          </div>
-          <p className="workspace-tab-copy">
-            {WORKSPACE_TABS.find((item) => item[0] === activeTab)?.[2]}
-          </p>
-        </div>
-
         {activeTab === "market" ? (
           <div className="market-deck">
             <div className="dashboard-chart-grid">

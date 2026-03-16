@@ -1590,7 +1590,11 @@ body {
 
 .page-shell-workspace {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+
+.page-shell-workspace > .workspace-stage-grid {
+  margin-top: 6px;
 }
 
 .workspace-error-panel,
@@ -1650,7 +1654,6 @@ body {
 
 .workspace-error-panel h1,
 .workspace-panel-header h1,
-.workspace-tab-header h2,
 .section-heading h2,
 .panel-head h3,
 .line-chart-card-header h3,
@@ -1673,60 +1676,78 @@ body {
   top: 12px;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(360px, 1.8fr) auto minmax(420px, 1.3fr) auto;
-  gap: 14px;
-  padding: 14px;
+  gap: 0;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: rgba(7, 16, 31, 0.86);
+  background: rgba(7, 16, 31, 0.88);
   backdrop-filter: blur(18px);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
-.command-cluster {
+.command-bar-row {
   display: flex;
-  gap: 12px;
-  align-items: stretch;
+  gap: 10px;
+  align-items: center;
   flex-wrap: wrap;
 }
 
-.command-cluster-tabs {
-  min-width: 0;
+.command-bar-row-tabs {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(139, 172, 214, 0.08);
+  justify-content: space-between;
 }
 
-.command-cluster-controls {
-  min-width: 0;
+.command-bar-row-controls {
+  padding: 10px 14px;
+  gap: 6px;
 }
 
-.command-cluster-actions {
-  justify-content: flex-end;
+.command-bar-status {
+  font-size: 0.78rem;
+  padding: 5px 10px;
+}
+
+.command-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.command-group-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.command-group-end {
+  margin-left: auto;
 }
 
 .workspace-segmented {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  width: 100%;
+  display: flex;
+  gap: 6px;
 }
 
 .workspace-segment {
-  display: grid;
-  gap: 6px;
-  padding: 12px 14px;
+  padding: 8px 16px;
   border: 1px solid transparent;
-  border-radius: 16px;
-  background: rgba(18, 30, 50, 0.76);
-  color: var(--ink);
-  text-align: left;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 500;
   cursor: pointer;
   transition:
-    transform 160ms ease,
+    color 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
 }
 
-.workspace-segment small,
-.workspace-tab-copy,
 .command-label,
 .command-readout span,
 .workspace-panel-meta,
@@ -1744,7 +1765,6 @@ body {
   color: var(--muted);
 }
 
-.workspace-segment:hover,
 .workspace-pill:hover,
 .workspace-action-button:hover,
 .workspace-button:hover,
@@ -1755,11 +1775,19 @@ body {
   transform: translateY(-1px);
 }
 
+.workspace-segment:hover {
+  color: var(--ink);
+  background: rgba(18, 30, 50, 0.5);
+}
+
 .workspace-segment-active {
-  border-color: rgba(109, 228, 182, 0.34);
-  background:
-    linear-gradient(180deg, rgba(109, 228, 182, 0.16), rgba(18, 30, 50, 0.88)),
-    rgba(18, 30, 50, 0.88);
+  color: var(--accent-strong);
+  border-color: rgba(109, 228, 182, 0.28);
+  background: rgba(109, 228, 182, 0.1);
+}
+
+.workspace-segment-active:hover {
+  background: rgba(109, 228, 182, 0.14);
 }
 
 .command-readout,
@@ -1881,21 +1909,21 @@ body {
 .workspace-kpi-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .workspace-kpi-card {
   display: grid;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 20px;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--panel-soft);
 }
 
 .workspace-kpi-card strong {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  line-height: 0.94;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+  line-height: 1;
 }
 
 .workspace-kpi-card-accent,
@@ -1951,11 +1979,14 @@ body {
   min-width: 0;
 }
 
+.workspace-rail-panel-primary {
+  border-color: rgba(109, 228, 182, 0.18);
+}
+
 .workspace-panel-header,
 .panel-head,
 .section-heading,
-.line-chart-card-header,
-.workspace-tab-header {
+.line-chart-card-header {
   display: flex;
   justify-content: space-between;
   gap: 20px;
@@ -1965,6 +1996,14 @@ body {
 .workspace-panel-header h1 {
   font-size: clamp(2.4rem, 5vw, 4.4rem);
   line-height: 0.92;
+}
+
+.workspace-panel-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .workspace-panel-meta,
@@ -2363,13 +2402,13 @@ body {
 }
 
 @media (max-width: 1320px) {
-  .workspace-command-bar {
-    grid-template-columns: 1fr;
-  }
-
   .workspace-stage-grid,
   .market-grid {
     grid-template-columns: 1fr;
+  }
+
+  .command-group-label {
+    display: none;
   }
 }
 
@@ -2389,7 +2428,6 @@ body {
   .panel-head,
   .section-heading,
   .line-chart-card-header,
-  .workspace-tab-header,
   .watchlist-item,
   .rail-list-item {
     display: grid;

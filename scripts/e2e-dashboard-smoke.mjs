@@ -203,9 +203,9 @@ async function main() {
       await page.getByRole("heading", { name: "Weekly volume overlay" }).waitFor();
       await page.getByLabel("As of").waitFor();
       await page.getByLabel("Time window").waitFor();
-      await page.getByLabel("Market").waitFor();
-      await page.getByLabel("Focus product").waitFor();
-      await page.getByLabel("Compare product").waitFor();
+      await page.getByLabel("Market", { exact: true }).waitFor();
+      await page.getByLabel("Focus product", { exact: true }).waitFor();
+      await page.getByLabel("Compare product", { exact: true }).waitFor();
       await page.getByRole("button", { name: "Volume" }).waitFor();
       await page.getByText("Activity resolved to Mar 12, 2026").waitFor();
       await page.getByRole("heading", { name: "Settlement change board" }).waitFor();

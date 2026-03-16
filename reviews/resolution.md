@@ -1,27 +1,31 @@
 # Accepted Findings
 
-- Phase 1 needed a hard data-proof gate before broader UI work.
-- The first implementation slice needed to stay narrower than the full MVP.
-- The metric layer needed to normalize exchange responses before many chart components were built.
-- Next.js should remain the default stack unless the browser-first proof exposed a material reason to choose otherwise.
-- The raw backend host `https://cws.prod.ext.xabx.net` should not be used directly because browser calls fail on CORS and naive server calls hit Cloudflare `403`.
-- The viable public ingress path is the exchange-facing API on `https://abaxx.exchange/api`.
+- Command bar restructure: Split into two visual tiers — top row for tabs, bottom row for all controls (snapshot, filters, metric pills, actions). Add subtle separator and group labels. Remove description text from tab buttons at default size.
+- KPI-to-chart hierarchy: Reduce KPI number size, tighten card padding, add more gap before the main stage grid to create clear primacy for the chart.
+- Remove redundant tab header: Eliminate the "Workspace tab / Market view" heading block. The tab identity is already in the command bar.
+- Right rail emphasis: Make watchlist visually primary (slightly larger heading, border-accent treatment) and make the other two panels visually lighter/secondary.
+- Snapshot status: Collapse to a small inline badge when dates match; only expand to full prose when there is a date mismatch.
 
 # Rejected Findings
 
-- None.
+- Typography change: Not blocking for this pass. Would require font loading changes and broad CSS updates. Defer to a dedicated design pass.
 
 # Implementation Slice
 
-- Scaffold the app in `C:\Users\justi\dev\Abaxx\dashboard`.
-- Validate products, instruments, and one downstream dataset on the public exchange-facing API.
-- Normalize the feeds into a dashboard snapshot layer.
-- Render the first real chart and product table from live data.
-- Strengthen the process with a structured validator, CI gate, and deterministic required e2e path.
+Concentrated changes in two files:
+1. `src/components/dashboard-workspace.tsx` — restructure command bar JSX into two rows, remove tab descriptions from visible text (keep as aria labels), remove tab section header block, change snapshot status to badge/inline.
+2. `src/app/globals.css` — restyle command bar as two-tier layout, adjust KPI sizing, add hierarchy spacing, differentiate rail panels.
+
+# What Changed
+
+Files modified:
+- `src/components/dashboard-workspace.tsx` — two-tier command bar, compact KPI labels, conditional snapshot status, removed tab section header, watchlist primary class, tighter rail copy
+- `src/app/globals.css` — `.command-bar-row`, `.command-group`, `.command-group-label`, `.command-group-end`, `.command-bar-status`, `.workspace-panel-header-meta`, `.workspace-rail-panel-primary` classes added; tab segments restyled as compact pills; KPI card sizing reduced; spacing hierarchy improved; dead selectors removed
+- `scripts/e2e-dashboard-smoke.mjs` — updated `getByLabel` calls to `{ exact: true }`, updated snapshot status assertion text
 
 # Deferred
 
-- revenue scenario controls
-- full product drilldowns
-- broader time-series expansion across all sections
-- block-trade depth beyond initial public-surface validation
+- Query-backing active tab, market filter, focus/compare product
+- Font pairing change
+- Responsive improvements below 640px (current responsive is adequate)
+- Animation/transitions on tab switch
