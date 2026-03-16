@@ -5,6 +5,8 @@ test-results/
 playwright-report/
 coverage/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
 .env
 .env.local
 .env.*.local
