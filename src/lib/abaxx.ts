@@ -194,6 +194,7 @@ export type ProductDrilldown = {
   latestEstimatedRevenue: number | null;
   revenueShare: number | null;
   contractDetails: ProductContractDrilldown[];
+  dailyTrends: DailyTrendPoint[];
   weeklyTrends: ProductDrilldownTrendPoint[];
 };
 
@@ -767,13 +768,19 @@ async function fetchHistoricalTimeSeries(options: {
   }
 
   try {
-    const payload = await fetchJson(
-      buildHistoricalTimeSeriesUrl(timeSeriesWindow.fromDate, timeSeriesWindow.tillDate, {
-        baseUrl,
-      }),
-      fetchImpl,
-    );
-    return normalizeHistorical(payload);
+    const records: HistoricalRecord[] = [];
+
+    for (const chunk of splitTimeSeriesWindow(timeSeriesWindow)) {
+      const payload = await fetchJson(
+        buildHistoricalTimeSeriesUrl(chunk.fromDate, chunk.tillDate, {
+          baseUrl,
+        }),
+        fetchImpl,
+      );
+      records.push(...normalizeHistorical(payload));
+    }
+
+    return records;
   } catch (error) {
     console.error("Failed to fetch Abaxx historical time series:", error);
     return [];
@@ -821,6 +828,63 @@ function buildTimeSeriesWindow(
     tillDate: asOf,
     lookbackDays,
   };
+}
+
+function splitTimeSeriesWindow(
+  timeSeriesWindow: DashboardSnapshot["timeSeriesWindow"],
+  maxSpanDays = 366,
+): Array<{
+  fromDate: string;
+  tillDate: string;
+  lookbackDays: number;
+}> {
+  const { fromDate, tillDate } = timeSeriesWindow;
+  if (!fromDate || !tillDate) {
+    return [];
+  }
+
+  const from = parseIsoDate(fromDate);
+  const till = parseIsoDate(tillDate);
+  if (!from || !till || from > till) {
+    return [
+      {
+        fromDate,
+        tillDate,
+        lookbackDays: timeSeriesWindow.lookbackDays,
+      },
+    ];
+  }
+
+  const windows: Array<{
+    fromDate: string;
+    tillDate: string;
+    lookbackDays: number;
+  }> = [];
+  let cursor = new Date(from);
+
+  while (cursor <= till) {
+    const chunkStart = new Date(cursor);
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setUTCDate(chunkEnd.getUTCDate() + maxSpanDays - 1);
+
+    if (chunkEnd > till) {
+      chunkEnd.setTime(till.getTime());
+    }
+
+    const lookbackDays =
+      Math.ceil((chunkEnd.getTime() - chunkStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    windows.push({
+      fromDate: chunkStart.toISOString().slice(0, 10),
+      tillDate: chunkEnd.toISOString().slice(0, 10),
+      lookbackDays,
+    });
+
+    cursor = new Date(chunkEnd);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return windows;
 }
 
 async function fetchJson(
@@ -1260,6 +1324,7 @@ function summarizeProductDrilldowns(input: {
         historical: productHistorical,
         settlements: productSettlements,
       }),
+      dailyTrends: summarizeDailyTrends(productTimeSeries),
       weeklyTrends: summarizeProductWeeklyTrends(
         productTimeSeries,
         revenueSummary?.feePerSide ?? null,

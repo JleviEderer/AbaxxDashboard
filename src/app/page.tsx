@@ -9,7 +9,7 @@ type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const WINDOW_OPTIONS = [14, 28, 42, 84];
+const WINDOW_OPTIONS = [1, 7, 30, 90, 180, -1, -2];
 
 export default async function Home({ searchParams }: HomeProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
@@ -21,6 +21,12 @@ export default async function Home({ searchParams }: HomeProps) {
   const requestedWindowDays = resolveRequestedWindowDays(
     pickFirstValue(resolvedSearchParams.window),
   );
+  const resolvedWindowDays =
+    requestedWindowDays === -1
+      ? computeYtdDays(requestedAsOf)
+      : requestedWindowDays === -2
+        ? computeAllHistoryDays(requestedAsOf)
+      : requestedWindowDays;
   const asOfOptions = buildRecentIsoDates(requestedAsOf, 7);
 
   let snapshot: DashboardSnapshot | null = null;
@@ -29,7 +35,7 @@ export default async function Home({ searchParams }: HomeProps) {
   try {
     snapshot = await fetchDashboardSnapshot({
       now: new Date(`${requestedAsOf}T12:00:00Z`),
-      trendLookbackDays: requestedWindowDays,
+      trendLookbackDays: resolvedWindowDays,
     });
   } catch (error) {
     snapshotError =
@@ -80,7 +86,30 @@ function resolveRequestedAsOf(value: string | null, fallback: string): string {
 
 function resolveRequestedWindowDays(value: string | null): number {
   const parsed = Number(value);
-  return WINDOW_OPTIONS.includes(parsed) ? parsed : 42;
+  return WINDOW_OPTIONS.includes(parsed) ? parsed : 90;
+}
+
+function computeYtdDays(asOf: string): number {
+  const date = new Date(`${asOf}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return 90;
+  }
+
+  const jan1 = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const diffMs = date.getTime() - jan1.getTime();
+  return Math.max(Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1, 1);
+}
+
+function computeAllHistoryDays(asOf: string): number {
+  const date = new Date(`${asOf}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return 365;
+  }
+
+  // Request from far enough back that the API returns all available history.
+  const floor = new Date(Date.UTC(2000, 0, 1));
+  const diffMs = date.getTime() - floor.getTime();
+  return Math.max(Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1, 1);
 }
 
 function buildRecentIsoDates(anchorDate: string, days: number): string[] {

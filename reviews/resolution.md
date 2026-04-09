@@ -1,11 +1,10 @@
 # Accepted Findings
 
-- Phase 1 needed a hard data-proof gate before broader UI work.
-- The first implementation slice needed to stay narrower than the full MVP.
-- The metric layer needed to normalize exchange responses before many chart components were built.
-- Next.js should remain the default stack unless the browser-first proof exposed a material reason to choose otherwise.
-- The raw backend host `https://cws.prod.ext.xabx.net` should not be used directly because browser calls fail on CORS and naive server calls hit Cloudflare `403`.
-- The viable public ingress path is the exchange-facing API on `https://abaxx.exchange/api`.
+- Bars always = volume, remove metric toggle
+- Single OI overlay toggle replaces both metric and display mode toggles
+- OI line on separate right y-axis scale when overlay is on
+- Fees removed from hero chart, stays in KPI strip and Revenue tab
+- Summary cards hardcode to volume
 
 # Rejected Findings
 
@@ -13,15 +12,21 @@
 
 # Implementation Slice
 
-- Scaffold the app in `C:\Users\justi\dev\Abaxx\dashboard`.
-- Validate products, instruments, and one downstream dataset on the public exchange-facing API.
-- Normalize the feeds into a dashboard snapshot layer.
-- Render the first real chart and product table from live data.
-- Strengthen the process with a structured validator, CI gate, and deterministic required e2e path.
+1. Replace `chartMetric` + `chartMode` state with `showOiOverlay` boolean
+2. Remove CHART_METRICS and CHART_MODES constants
+3. Update ChartPanelToolbar: remove metric/mode pill groups, add single OI toggle
+4. Hardcode chart titles to volume: "Market volume trend", "{product} volume trend", "Volume comparison"
+5. Update MarketAggregateChart: always draw volume bars, optionally draw OI line on separate scale
+6. Update FocusChart: same treatment
+7. Update OverlayComparisonChart: grouped volume bars, optional OI lines
+8. Update MarketAggregateSummary and FocusSummary: hardcode to volume
+9. Update compare summary cards: hardcode spread to volume
+10. Update tooltips: show volume, and OI when overlay is on
+11. Update Reset button: remove chartMetric/chartMode reset
+12. Update e2e: remove metric/mode button assertions, add OI toggle assertion
 
 # Deferred
 
-- revenue scenario controls
-- full product drilldowns
-- broader time-series expansion across all sections
-- block-trade depth beyond initial public-surface validation
+- Right y-axis numeric labels (OI scale)
+- Multi-product compare (3+ products)
+- Fees overlay on hero

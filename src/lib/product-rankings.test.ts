@@ -133,6 +133,7 @@ function createDrilldown(
     latestEstimatedRevenue: null,
     revenueShare: null,
     contractDetails: [],
+    dailyTrends: [],
     weeklyTrends: [],
     ...rest,
   };

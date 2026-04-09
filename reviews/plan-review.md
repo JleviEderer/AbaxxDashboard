@@ -1,22 +1,17 @@
 # Findings
 
 - Severity: high
-  File: PLAN.md
-  Issue: the Phase 1 data proof needed explicit success criteria. The builder should not move into broad UI work until the app can render a live flow for products, instruments, and one downstream dataset.
+  File: src/components/dashboard-workspace.tsx
+  Issue: Volume/OI/Fees metric toggle and Bars+Line/Bars/Line display mode toggle make bars and line show the same metric. This is redundant — bars showing volume and line showing volume tells the user nothing new.
+
+- Severity: high
+  File: src/components/dashboard-workspace.tsx
+  Issue: The chart should show two different metrics: bars = volume (the primary activity signal), line = OI (the structural context). This matches the commodity terminal convention (CME, ICE, Bloomberg).
 
 - Severity: medium
-  File: PLAN.md
-  Issue: the MVP was too broad for the first implementation slice. The first slice should stop at app scaffold, a live product/instrument flow, one readable visualization, and a minimal methodology note.
-
-- Severity: medium
-  File: PLAN.md
-  Issue: the metric layer needed to be defined before chart proliferation so chart components would not absorb endpoint quirks.
-
-- Severity: low
-  File: PLAN.md
-  Issue: Next.js should remain the default stack unless the browser-first proof shows a strong reason to prefer a thinner client-only setup.
+  File: src/components/dashboard-workspace.tsx
+  Issue: Fees is a modeled number, not market-observed. Putting it on the hero chart alongside observed metrics makes the chart feel smarter than it is. Fees belong in summary cards and the Revenue tab.
 
 # Summary
 
-Proceed, but narrow the first implementation slice and make the data proof a
-hard gate before broader UI work.
+Replace the dual toggle system (metric + display mode) with a single OI overlay toggle. Bars always show volume. OI line is optional, rendered on a separate right y-axis. Fees stay off the hero chart entirely.

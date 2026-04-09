@@ -698,4 +698,143 @@ describe("abaxx helpers", () => {
       annualizedRunRate: 330720,
     });
   });
+
+  it("chunks oversized historical time-series windows to stay within the api date-range limit", async () => {
+    const responses = new Map<string, unknown>([
+      [
+        "https://fixture.local/api/products",
+        { success: true, data: ["GOM"] },
+      ],
+      [
+        "https://fixture.local/api/instruments",
+        {
+          success: true,
+          data: [
+            {
+              display_name: "GOMK26 (May)",
+              expiry: "2026-04-01",
+              market: "Energy",
+              product: "GOM",
+              symbol: "GOMK26",
+            },
+          ],
+        },
+      ],
+      [
+        "https://fixture.local/api/historical-data?asof=2026-03-17",
+        { success: true, data: [] },
+      ],
+      [
+        "https://fixture.local/api/historical-data?asof=2026-03-16",
+        {
+          success: true,
+          data: [
+            {
+              display_name: "GOMK26 (May)",
+              expiry: "2026-04-01",
+              open_interest: "3",
+              product: "GOM",
+              settle: "12.50",
+              settle_change: "-0.40",
+              symbol: "GOMK26",
+              total_volume: 636,
+              trade_date: "2026-03-16",
+            },
+          ],
+        },
+      ],
+      [
+        "https://fixture.local/api/historical-data/time-series?from_date=2025-03-15&till_date=2026-03-15",
+        {
+          success: true,
+          data: [
+            {
+              display_name: "GOMK26 (May)",
+              expiry: "2026-04-01",
+              open_interest: "2",
+              product: "GOM",
+              settle: "11.90",
+              settle_change: "0.20",
+              symbol: "GOMK26",
+              total_volume: 100,
+              trade_date: "2025-03-17",
+            },
+          ],
+        },
+      ],
+      [
+        "https://fixture.local/api/historical-data/time-series?from_date=2026-03-16&till_date=2026-03-16",
+        {
+          success: true,
+          data: [
+            {
+              display_name: "GOMK26 (May)",
+              expiry: "2026-04-01",
+              open_interest: "3",
+              product: "GOM",
+              settle: "12.50",
+              settle_change: "-0.40",
+              symbol: "GOMK26",
+              total_volume: 636,
+              trade_date: "2026-03-16",
+            },
+          ],
+        },
+      ],
+      [
+        "https://fixture.local/api/settlement-data?asof=2026-03-17",
+        { success: true, data: [] },
+      ],
+      [
+        "https://fixture.local/api/settlement-data?asof=2026-03-16",
+        {
+          success: true,
+          data: [
+            {
+              display_name: "GOMK26 (May)",
+              expiry: "2026-04-01",
+              pre_settle: "12.10",
+              product: "GOM",
+              settle: "12.50",
+              settle_change: "0.40",
+              symbol: "GOMK26",
+              trade_date: "2026-03-16",
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      calls.push(url);
+      const payload = responses.get(url);
+      if (!payload) {
+        throw new Error(`Unexpected fetch: ${url}`);
+      }
+
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const snapshot = await fetchDashboardSnapshot({
+      baseUrl: "https://fixture.local/api",
+      fetchImpl,
+      now: new Date("2026-03-17T12:00:00Z"),
+      trendLookbackDays: 367,
+    });
+
+    expect(calls).toContain(
+      "https://fixture.local/api/historical-data/time-series?from_date=2025-03-15&till_date=2026-03-15",
+    );
+    expect(calls).toContain(
+      "https://fixture.local/api/historical-data/time-series?from_date=2026-03-16&till_date=2026-03-16",
+    );
+    expect(snapshot.timeSeries).toHaveLength(2);
+    expect(snapshot.dailyTrends).toHaveLength(2);
+    expect(snapshot.weeklyTrends).toHaveLength(2);
+  });
 });

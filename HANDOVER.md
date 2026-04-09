@@ -8,121 +8,130 @@ This handover is for the dashboard app at:
 
 Treat `dashboard/` as the project root for all app work and validation.
 
-## Current State
-
-The dashboard is no longer in the rejected "scrolly report" state.
-
-What is now implemented and working:
-
-- sticky top workspace bar
-- chart-first top screen with compare overlay
-- right rail for watchlist, movers, and fee concentration
-- tabbed `Market`, `Workflow`, and `Revenue` surfaces
-- darker, higher-contrast terminal-style visual system
-- synchronized workflow state across rankings, drilldown, and comparison
-- URL-backed `asof` and `window` controls
-- honest requested-vs-resolved snapshot messaging when the selected date falls back
-- passing lint, typecheck, tests, build, and e2e smoke
-
-What is still not resolved:
-
-- active tab is not query-backed yet
-- market filter is not query-backed yet
-- focus/compare product state is not query-backed yet
-- no persistence/caching layer beyond URL-backed snapshot controls
-- no alerting / saved workspace behavior yet
+Current branch: `uiux/dashboard-cleanup`
 
 ## What We Worked On
 
-This session did two connected pieces of work:
+This branch has been focused on making the custom Abaxx dashboard feel more usable than the original Streamlit reference without reverting to a report-style layout.
 
-1. replaced the long report layout with a real analysis workspace
-2. made the top-bar `As of` and `Time window` controls real by wiring them through server fetches and URL state
+The work on this branch now includes:
 
-## What Got Done
+- a chart-first Market / Workflow / Revenue workspace shell
+- a chart-adjacent `Filters` surface instead of generic `Controls`
+- separate hero modes for market overview, single-product focus, and compare
+- a stable watchlist/market-info rail that does not collapse when hero state changes
+- volume-first hero charts with optional OI overlay instead of redundant metric/display toggles
+- de-gamified styling with restrained professional colors
+- adaptive chart granularity so short windows behave like rolling periods instead of collapsing into weekly buckets
 
-### 1. Workspace redesign shipped
+## What Is Done
 
-Implemented:
+### Hero and chart UX
 
-- `src/components/dashboard-workspace.tsx`
-- `src/components/products-dashboard-slice.tsx`
-- `src/app/page.tsx`
-- `src/app/layout.tsx`
-- `src/app/globals.css`
-- `src/components/product-analysis-workbench.tsx`
-- `scripts/e2e-dashboard-smoke.mjs`
+- Main hero chart now owns the full row instead of sharing width with the old right rail.
+- Watchlist, settlement movers, and fee concentration panels live below the chart.
+- The old metric toggle (`Volume` / `OI` / `Fees`) and display toggle (`Bars + Line` / `Bars` / `Line`) were removed.
+- Hero charts now always use volume bars as the primary signal.
+- A single `Show OI` toggle overlays open interest as a line on a separate scale.
+- Fees were removed from the hero chart and remain in the KPI strip and Revenue tab.
+- Hover tooltips are implemented with widened hit areas so bars/points are easier to inspect.
+- Focus and compare are separate workflows:
+  - `Focus` shows a single-product chart and stats
+  - `Compare` shows the two-product overlay
+- Watchlist actions are now sticky toggles instead of one-way navigation:
+  - clicking an inactive `Focus` or `Compare` button activates that state
+  - clicking the same active button again deselects back toward market overview
+- The watchlist, settlement board, and fee board stay the same size in every hero mode.
+- Watchlist rows now show clear active states:
+  - focused row = teal accent treatment
+  - compare-left row = teal compare treatment
+  - compare-right row = gold compare treatment
 
-Behavior:
+### Filters and framing
 
-- first screen is now chart-first instead of prose-first
-- command bar stays sticky and persistent
-- KPI strip is compact and dashboard-like
-- market tab includes the compare overlay, settlement heatmap, and small multiples
-- workflow tab reuses the coordinated ranking/drilldown/comparison system
-- revenue tab still uses the scenario model, but now sits inside a proper workspace shell
+- `Controls` was renamed to `Filters`.
+- Filters are expanded by default on desktop.
+- Hero-state is expressed in the chart eyebrow instead of a separate pill row:
+  - `ABAXX EXCHANGE / MARKET OVERVIEW`
+  - `PRODUCT FOCUS / <product>`
+  - `COMPARE / <left> VS <right>`
+- Chart titles were tightened to neutral phrasing such as `Market volume trend` and `Volume comparison`.
+- `Show OI` is now the only hero-chart overlay control.
+- Chart footer cards were removed from market/focus mode because they duplicated tooltip detail.
 
-### 2. Snapshot controls are now real
+### Visual tone
 
-Implemented:
+- The palette was shifted away from neon/gamer styling toward restrained blue-teal and muted gold.
+- Heavy glow and gradient treatment was reduced.
+- Dropdown option text was explicitly styled for dark backgrounds to fix unreadable select menus.
 
-- query parsing in `src/app/page.tsx`
-- control props passed through `src/components/products-dashboard-slice.tsx`
-- query-driven client navigation in `src/components/dashboard-workspace.tsx`
+### Window semantics and adaptive granularity
 
-Behavior:
-
-- `asof` and `window` now live in the URL
-- server snapshot fetches are anchored off the requested `asof`
-- default date resolution uses `resolveSnapshotNow()` so `ABAXX_SNAPSHOT_NOW` still makes smoke deterministic
-- the UI explicitly tells the user when a requested date resolved to an earlier actual snapshot date
-
-## Key Decisions
-
-### Decision 1: Keep the new shell and stop revisiting the old report framing
-
-Reason:
-
-- the user had already rejected the long-page/report structure
-- the new workspace direction is materially closer to the intended Grafana/TradingView mental model
-
-### Decision 2: Put snapshot-date state in the URL before adding more polish
-
-Reason:
-
-- the top bar was still partly decorative until `asof` and `window` became real
-- URL-backed controls make refresh/share/e2e behavior deterministic
-- this establishes the right pattern for any later query-backed workspace state
-
-### Decision 3: Leave most local workspace state client-side for now
-
-Reason:
-
-- the highest-value follow-up is obvious: query-back active tab, market filter, and focus/compare
-- that work can now be layered on top of the `asof` / `window` pattern instead of invented from scratch
+- Window options are now:
+  - `1D`
+  - `1W`
+  - `1M`
+  - `3M`
+  - `6M`
+  - `YTD`
+  - `All`
+- `YTD` and `All` use sentinel values in `src/app/page.tsx` and are resolved to real day counts before fetch:
+  - `-1` => year-to-date day count
+  - `-2` => full history day count back to 2000-01-01
+- The Abaxx `historical-data/time-series` endpoint only accepts ranges up to 366 days wide.
+- `src/lib/abaxx.ts` now chunks oversized time-series requests so `All` still returns real trend data instead of an empty chart.
+- Granularity now adapts by requested window:
+  - `1D`, `1W`, `1M` => daily
+  - `3M`, `6M`, `YTD`, `All` => weekly
+- Summary cards and tooltip delta labels adapt with granularity:
+  - daily => `Latest day`, `Day-over-day`, `DoD`
+  - weekly => `Latest week`, `Week-over-week`, `WoW`
+- Daily fees bug was fixed in `dashboard-workspace.tsx` by deriving daily estimated revenue from each day’s volume and `feePerSide` instead of using zero/null placeholders.
 
 ## What Worked
 
-- the new `dashboard-workspace.tsx` shell gave the page a real terminal/workspace feel quickly
-- reusing existing workflow and revenue components preserved data/modeling work
-- pushing `asof` / `window` through the page layer was simpler than changing the data library
-- the smoke test remained deterministic by keeping `resolveSnapshotNow()` in the server path
+- Tight, scoped UI passes worked better than broad redesign prompts.
+- Playwright-based visual review was useful for catching layout and interaction issues before committing to more code churn.
+- Moving chart-specific controls into the chart panel materially improved cause-and-effect for the hero.
+- Adaptive daily/weekly granularity is the right model for the short-window problem the user flagged from the Streamlit app.
 
-## What Didn't Work
+## What Did Not Work
 
-- the first e2e update used stale assertions from the old layout and had to be relaxed to new stable selectors
-- the top bar still resets local view state only; it does not fully reset query-backed state because only `asof` and `window` are in the URL so far
+- Claude repeatedly tried to work around the parent repo stop-hook issue by creating stub files or editing unrelated config. Those changes were cleaned out each time and should not be repeated.
+- Generated-file churn kept coming back, especially `next-env.d.ts` pointing at `.next-e2e`. That file should stay on `./.next/types/routes.d.ts`.
+- One-off audit/scrape scripts were useful during investigation but should not remain in the repo unless they are intentionally productized.
 
-## Lessons / Gotchas
+## Current Risks / Open Items
 
-- run dashboard checks from `C:\Users\justi\dev\Abaxx\dashboard`, not the repo root
-- if you add more persistent controls, follow the same pattern now used for `asof` and `window`
-- preserve `ABAXX_SNAPSHOT_NOW` compatibility when touching default date behavior, or the smoke harness will get brittle
-- the user does not want another incremental polish pass toward report aesthetics; continue building workspace behavior
+- The parent repo stop hook can still loop from `dashboard/` because `C:\Users\justi\dev\Abaxx\.claude\settings.json` uses a relative command path. This is a parent-repo config problem, not a dashboard repo problem.
+- Remaining workspace state is still not query-backed:
+  - active tab
+  - market filter
+  - focus product
+  - compare product
+  - hero mode
+- The hero charts are still custom SVGs, so zoom/pan/export/crosshair behavior is hand-rolled and limited compared with a real charting library.
+- Compare mode is still capped at two products; multi-product compare has been discussed but is not implemented.
+- The info panels beneath the chart still use their existing line/sparkline assumptions and do not yet adapt to daily granularity.
 
-## Validation Run In This Session
+## Latest Market-Tab Audit
 
-Verified successfully:
+Playwright review of the current Market tab found:
+
+- The previous Market-tab cleanup pass was completed:
+  - watchlist rows keep horizontal `Focus` / `Compare` buttons
+  - the two redundant lower line-chart cards were removed
+  - product activity snapshots were tightened with clearer hierarchy
+  - `Listings` was renamed to `Listed contracts`
+- The current hero pass was also completed:
+  - watchlist remains stable across market/focus/compare states
+  - `Focus` / `Compare` are toggle actions with clear row/button states
+  - hero charts now show volume bars with optional OI overlay
+  - fees are no longer plotted on the hero
+
+## Validation
+
+This session's current branch state passed:
 
 - `python .\.claude\hooks\check-dashboard-loop.py`
 - `npm run lint`
@@ -131,76 +140,60 @@ Verified successfully:
 - `npm run build`
 - `npm run test:e2e`
 
-## Important File Map
+If any copy or hero title changes again, update `scripts/e2e-dashboard-smoke.mjs` at the same time.
 
-Entry and server state:
+## Important Files
+
+### Entry and server state
 
 - `src/app/page.tsx`
-- `src/components/products-dashboard-slice.tsx`
+  - `WINDOW_OPTIONS`
+  - `YTD` / `All` resolution
+  - server fetch for snapshot
 
-Workspace shell:
+### Main workspace
 
 - `src/components/dashboard-workspace.tsx`
+  - hero mode logic
+  - adaptive daily/weekly chart data shaping
+  - chart toolbar, tooltips, summary cards
+  - filter interactions
+
 - `src/app/globals.css`
-- `src/app/layout.tsx`
+  - workspace layout
+  - color system
+  - chart, filter, and responsive styling
 
-Workflow integration:
-
-- `src/components/product-analysis-workbench.tsx`
-- `src/components/product-rankings-panel.tsx`
-- `src/components/product-drilldown-panel.tsx`
-- `src/components/product-comparison-panel.tsx`
-
-Revenue and charting:
-
-- `src/components/revenue-scenario-panel.tsx`
-- `src/components/line-chart-card.tsx`
-
-Data/modeling:
+### Data/modeling
 
 - `src/lib/abaxx.ts`
-- `src/lib/revenue-scenarios.ts`
-- `src/lib/product-rankings.ts`
+  - snapshot assembly
+  - chunked time-series fetching for `All` / oversized windows
+  - `ProductDrilldown` shape now includes `dailyTrends`
 
-Validation:
+- `src/lib/product-rankings.test.ts`
+  - fixtures updated for `dailyTrends`
+
+### Validation and review artifacts
 
 - `scripts/e2e-dashboard-smoke.mjs`
-- `src/lib/abaxx.test.ts`
-- `src/lib/revenue-scenarios.test.ts`
-- `src/lib/product-rankings.test.ts`
+- `reviews/plan-review.md`
+- `reviews/resolution.md`
 - `.claude/hooks/check-dashboard-loop.py`
 
-## Recommended Next Step
+## Recommended Next Steps
 
-Make the rest of the workspace state query-backed.
-
-Highest-value order:
-
-1. active tab
-2. market filter
-3. focus product
-4. compare product
-
-Why:
-
-- `asof` / `window` already established the pattern
-- this turns the page from "interactive in one session" into a shareable workspace
-- it will also make e2e coverage more explicit and easier to extend
+1. Query-back the remaining workspace state so shared URLs preserve more of the analysis context.
+2. Decide whether compare should remain two-product or expand to a separate multi-product compare pass.
+3. Decide whether the parent repo hook path should be fixed locally in `C:\Users\justi\dev\Abaxx\.claude\settings.json` or simply tolerated when working from `dashboard/`.
+4. If chart sophistication becomes the bottleneck, evaluate a real charting library instead of extending the custom SVG system further.
 
 ## Restart Checklist
 
 1. `cd C:\Users\justi\dev\Abaxx\dashboard`
-2. Read `HANDOVER.md`; the key repo napkin lives at `C:\Users\justi\dev\Abaxx\.codex\napkin.md`
-3. Assume the workspace redesign is the accepted direction
-4. Start from the existing `dashboard-workspace.tsx` shell
-5. Extend query-backed state rather than inventing a second persistence model
-6. Run `python .\.claude\hooks\check-dashboard-loop.py`
-7. Run `npm run dev`
-
-## Session Status
-
-The important truth for the next session is:
-
-- the workspace redesign is shipped and validated
-- `asof` and `window` are real, URL-backed controls
-- the next move is to make more workspace state persistent in the URL, not to revisit the old report layout
+2. Read `HANDOVER.md`
+3. Read `.codex/napkin.md`
+4. Run `git status --short --branch`
+5. Confirm branch is still `uiux/dashboard-cleanup`
+6. Run the dashboard review loop
+7. Continue from `src/components/dashboard-workspace.tsx`

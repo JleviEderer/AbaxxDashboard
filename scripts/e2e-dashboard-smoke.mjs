@@ -200,19 +200,70 @@ async function main() {
       const page = await browser.newPage();
       await page.goto(appUrl, { waitUntil: "domcontentloaded" });
 
-      await page.getByRole("heading", { name: "Weekly volume overlay" }).waitFor();
+      // Default hero is the market aggregate chart, not product comparison
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+      // OI overlay toggle
+      await page.getByRole("button", { name: "Show OI" }).waitFor();
+      await page.getByText("Latest week").waitFor();
+      await page.getByText("Week-over-week").waitFor();
+      await page.getByText("Market breadth").waitFor();
+      // Default 3M window shows weekly granularity badge
+      await page.locator(".granularity-badge", { hasText: "Weekly" }).waitFor();
+
+      // Filters are expanded by default; verify they exist
       await page.getByLabel("As of").waitFor();
       await page.getByLabel("Time window").waitFor();
-      await page.getByLabel("Market").waitFor();
-      await page.getByLabel("Focus product").waitFor();
-      await page.getByLabel("Compare product").waitFor();
-      await page.getByRole("button", { name: "Volume" }).waitFor();
+      await page.getByLabel("Market", { exact: true }).waitFor();
+      await page.getByLabel("Focus product", { exact: true }).waitFor();
+      await page.getByLabel("Compare product", { exact: true }).waitFor();
+
+      // Changing Focus product activates focus mode (single-product view)
+      await page.getByLabel("Focus product", { exact: true }).selectOption("CP1");
+      await page.getByRole("heading", { name: /CP1 volume trend/i }).waitFor();
+
+      // Return to market overview
+      await page.getByRole("button", { name: "Market overview" }).click();
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
+      // Changing Compare product activates compare mode immediately
+      await page.getByLabel("Compare product", { exact: true }).selectOption("GOM");
+      await page.getByRole("heading", { name: "Volume comparison" }).waitFor();
+      await page.getByText("Compare leg").waitFor();
+
+      // Return to market overview again
+      await page.getByRole("button", { name: "Market overview" }).click();
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
+      // Market filter scopes the hero (Energy market has only GOM)
+      await page.getByLabel("Market", { exact: true }).selectOption("Energy");
+      // Hero should still be in market view but scoped to Energy products
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
+      // Reset to All markets for remaining assertions
+      await page.getByLabel("Market", { exact: true }).selectOption("all");
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
+      // Reset all state (including left/right products) so Workflow tab tests start clean
+      await page.getByRole("button", { name: "Reset" }).click();
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
+      // Collapse filters
+      await page.getByRole("button", { name: "Filters" }).click();
       await page.getByText("Activity resolved to Mar 12, 2026").waitFor();
+
+      // Switch to compare mode via the "Compare products" action
+      await page.getByRole("button", { name: "Compare products" }).click();
+      await page.getByRole("heading", { name: "Volume comparison" }).waitFor();
+      await page.getByText("Focus leg").waitFor();
+      await page.getByText("Compare leg").waitFor();
+
+      // Switch back to market overview
+      await page.getByRole("button", { name: "Market overview" }).click();
+      await page.getByRole("heading", { name: "Market volume trend" }).waitFor();
+
       await page.getByRole("heading", { name: "Settlement change board" }).waitFor();
       await page.getByRole("heading", { name: "Product by tenor visibility" }).waitFor();
       await page.getByRole("heading", { name: "Product activity snapshots" }).waitFor();
-      await page.getByRole("heading", { name: "Weekly traded volume" }).waitFor();
-      await page.getByRole("heading", { name: "Week-end open interest" }).waitFor();
       await page.getByText("GOMK26").first().waitFor();
       await page.getByText("CP1J26 settle 14.74").waitFor();
 
